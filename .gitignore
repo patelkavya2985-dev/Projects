@@ -1,0 +1,7 @@
+dist/
+build/
+*.exe
+*.dll
+*.spec
+*.whl
+__pycache__/
