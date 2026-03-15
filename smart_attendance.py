@@ -5,7 +5,12 @@ import face_recognition
 import numpy as np
 from datetime import datetime
 from pyzbar.pyzbar import decode
+import requests
 
+# -----------------------------
+# GOOGLE SHEET WEB APP URL
+# -----------------------------
+WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwEYNYMM3NaWxJV00QzcRZYqmQuD-K7kPDi-mrO5d9xCry3Ra4pezpCUkd9DATRqUGj/exec"
 
 # -----------------------------
 # PATH HANDLING (WORKS FOR EXE)
@@ -16,14 +21,16 @@ else:
     BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 
 DATASET_PATH = os.path.join(BASE_PATH, "dataset")
-ATTENDANCE_FILE = os.path.join(BASE_PATH, "attendance.csv")
-
 
 # -----------------------------
 # LOAD DATASET
 # -----------------------------
 images = []
 classNames = []
+
+if not os.path.exists(DATASET_PATH):
+    print("Dataset folder not found:", DATASET_PATH)
+    exit()
 
 for file in os.listdir(DATASET_PATH):
 
@@ -40,7 +47,6 @@ for file in os.listdir(DATASET_PATH):
     classNames.append(os.path.splitext(file)[0])
 
 print("Loaded images:", classNames)
-
 
 # -----------------------------
 # FACE ENCODING
@@ -63,12 +69,10 @@ encodeListKnown = findEncodings(images)
 
 print("Encoding Complete")
 
-
 # -----------------------------
 # ATTENDANCE MEMORY
 # -----------------------------
 markedNames = set()
-
 
 def markAttendance(name):
 
@@ -80,13 +84,28 @@ def markAttendance(name):
     date = now.strftime("%Y-%m-%d")
     time = now.strftime("%H:%M:%S")
 
-    with open(ATTENDANCE_FILE, "a") as f:
-        f.write(f"\n{name},{date},{time}")
+    data = {
+        "name": name,
+        "date": date,
+        "time": time
+    }
+
+    try:
+        print("Sending attendance to Google Sheet...")
+
+        response = requests.post(WEB_APP_URL, data=data, timeout=5)
+
+        print("Server response:", response.text)
+
+        if response.status_code == 200:
+            print("Attendance sent to Google Sheet:", name)
+        else:
+            print("Error sending attendance")
+
+    except Exception as e:
+        print("Connection error:", e)
 
     markedNames.add(name)
-
-    print("Attendance marked:", name)
-
 
 # -----------------------------
 # CAMERA START
@@ -94,7 +113,6 @@ def markAttendance(name):
 cap = cv2.VideoCapture(0)
 
 qrVerified = False
-
 
 while True:
 
@@ -124,7 +142,7 @@ while True:
     # -------------------------
     if qrVerified:
 
-        imgSmall = cv2.resize(img, (0, 0), None, 0.5, 0.5)
+        imgSmall = cv2.resize(img, (0,0), None, 0.5, 0.5)
         imgSmall = cv2.cvtColor(imgSmall, cv2.COLOR_BGR2RGB)
 
         facesCurFrame = face_recognition.face_locations(imgSmall)
@@ -133,7 +151,6 @@ while True:
         for encodeFace, faceLoc in zip(encodesCurFrame, facesCurFrame):
 
             matches = face_recognition.compare_faces(encodeListKnown, encodeFace)
-
             faceDis = face_recognition.face_distance(encodeListKnown, encodeFace)
 
             matchIndex = np.argmin(faceDis)
@@ -144,18 +161,18 @@ while True:
 
                 markAttendance(name)
 
-                y1, x2, y2, x1 = faceLoc
-                y1, x2, y2, x1 = y1*2, x2*2, y2*2, x1*2
+                y1,x2,y2,x1 = faceLoc
+                y1,x2,y2,x1 = y1*2,x2*2,y2*2,x1*2
 
-                cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                cv2.rectangle(img,(x1,y1),(x2,y2),(0,255,0),2)
 
                 cv2.putText(
                     img,
                     name,
-                    (x1, y1 - 10),
+                    (x1,y1-10),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     0.9,
-                    (0, 255, 0),
+                    (0,255,0),
                     2
                 )
 
