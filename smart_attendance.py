@@ -30,7 +30,7 @@ classNames = []
 
 if not os.path.exists(DATASET_PATH):
     print("Dataset folder not found:", DATASET_PATH)
-    exit()
+    sys.exit()
 
 for file in os.listdir(DATASET_PATH):
 
